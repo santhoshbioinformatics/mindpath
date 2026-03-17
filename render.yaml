@@ -9,7 +9,7 @@ services:
     region: oregon          # Free tier is available in oregon and frankfurt
     plan: free              # Free plan — sleeps after 15 min of inactivity
     rootDir: .              # Backend lives at repo root
-    buildCommand: npm ci && npx prisma generate && npm run build
+    buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && node dist/main
     healthCheckPath: /api/v1/health
 
