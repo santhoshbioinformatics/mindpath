@@ -1,0 +1,52 @@
+# render.yaml
+# This file tells Render exactly how to build and run your backend.
+# Commit this to the ROOT of your repo and Render will detect it automatically.
+
+services:
+  - type: web
+    name: mindpath-api
+    runtime: node
+    region: oregon          # Free tier is available in oregon and frankfurt
+    plan: free              # Free plan — sleeps after 15 min of inactivity
+    rootDir: .              # Backend lives at repo root
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && node dist/main
+    healthCheckPath: /api/v1/health
+
+    # ── Environment variables ───────────────────────────────────────────────
+    # Set these in the Render dashboard under Environment > Secret Files
+    # DO NOT put real secrets in this file — it gets committed to git
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 3000
+
+      # These must be set in the Render dashboard:
+      - key: DATABASE_URL
+        sync: false         # "sync: false" means "set this manually in dashboard"
+
+      - key: JWT_SECRET
+        sync: false
+
+      - key: JWT_REFRESH_SECRET
+        sync: false
+
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      - key: ALLOWED_ORIGINS
+        sync: false         # e.g. https://yourapp.expo.dev,exp://your-ip:8081
+
+      # Optional
+      - key: EXPO_ACCESS_TOKEN
+        sync: false
+
+    # ── Auto-deploy settings ────────────────────────────────────────────────
+    autoDeploy: true        # Deploys on every push to your main branch
+
+    # ── Scaling (free tier = 1 instance) ────────────────────────────────────
+    scaling:
+      minInstances: 1
+      maxInstances: 1

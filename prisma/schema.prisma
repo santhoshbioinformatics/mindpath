@@ -1,0 +1,538 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IDENTITY
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile         UserProfile?
+  goals           Goal[]
+  missionStmt     MissionStatement?
+  checkIns        DailyCheckIn[]
+  reflections     ReflectionEntry[]
+  voiceReflections VoiceReflection[]
+  assessments     AssessmentResponse[]
+  activityLogs    ActivityLog[]
+  medications     Medication[]
+  insights        Insight[]
+  weeklyReports   WeeklyReport[]
+  monthlyReports  MonthlyReport[]
+  alerts          Alert[]
+  trustedContacts TrustedContact[]
+  notifPrefs      NotificationPreference?
+  wearableSync    WearableSync[]
+  pushTokens      PushToken[]
+  auditLogs       AuditLog[]
+  magicLinks      MagicLink[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName    String
+  dateOfBirth    DateTime?
+  timezone       String    @default("UTC")
+  primaryGoals   String[]
+  onboardingDone Boolean   @default(false)
+  baselineDone   Boolean   @default(false)
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastCheckIn    DateTime?
+  avatarUrl      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("user_profiles")
+}
+
+model MagicLink {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@map("magic_links")
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   // "ios" | "android" | "web"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("push_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIFE DIRECTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MissionStatement {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("mission_statements")
+}
+
+model Goal {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  category    GoalCategory @default(personal)
+  targetDate  DateTime?
+  isActive    Boolean   @default(true)
+  progress    Int       @default(0) // 0–100
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, isActive])
+  @@map("goals")
+}
+
+enum GoalCategory {
+  wellbeing
+  career
+  social
+  health
+  personal
+  financial
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DAILY CHECK-IN
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DailyCheckIn {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Core metrics (0–100)
+  mood             Int
+  anxiety          Int
+  energy           Int
+  clarity          Int
+  sleepQuality     Int
+
+  // Optional metrics
+  motivation       Int?
+  socialConnection Int?
+
+  // Context
+  stressTags       String[]
+  notes            String?
+
+  // Computed
+  overallScore     Float
+
+  checkedInAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@index([userId, checkedInAt])
+  @@map("daily_check_ins")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOURNALING
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ReflectionEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  wentWell     String?
+  wasDifficult String?
+  learned      String?
+  mattersNow   String?
+  tomorrowPlan String?
+  freeText     String?
+
+  tags         String[]
+  aiSummary    String?
+
+  reflectedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([userId, reflectedAt])
+  @@map("reflection_entries")
+}
+
+model VoiceReflection {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageKey  String   // S3/R2 object key
+  durationSec Int
+  transcript  String?
+  aiSummary   String?
+  tags        String[]
+  recordedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userId, recordedAt])
+  @@map("voice_reflections")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ASSESSMENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AssessmentResponse {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  assessmentType   AssessmentType
+  rawAnswers       Json            // { questionId: value }
+  totalScore       Float
+  severity         SeverityLevel   @default(none)
+  comments         String?
+  flaggedForReview Boolean         @default(false)
+
+  completedAt      DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+
+  @@index([userId, assessmentType, completedAt])
+  @@map("assessment_responses")
+}
+
+enum AssessmentType {
+  mood
+  anxiety
+  stress
+  cognition
+  life_satisfaction
+  life_progress
+  pain
+  addiction
+  memory
+  suicidality
+}
+
+enum SeverityLevel {
+  none
+  mild
+  moderate
+  severe
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVITIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id           String       @id @default(cuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type         ActivityType
+  name         String?      // for custom activities
+  durationMins Int?
+  intensity    String?      // "low" | "medium" | "high"
+  notes        String?
+
+  loggedAt     DateTime     @default(now())
+  createdAt    DateTime     @default(now())
+
+  @@index([userId, loggedAt])
+  @@map("activity_logs")
+}
+
+enum ActivityType {
+  sleep
+  exercise
+  meal
+  work
+  social
+  mindfulness
+  therapy
+  substance
+  custom
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEDICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Medication {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name          String
+  doseMg        Float?
+  doseUnit      String?   // "mg" | "mcg" | "ml" | "units" | "tablet"
+  frequency     MedFrequency
+  reminderTimes String[]  // ["08:00", "20:00"]
+  isActive      Boolean   @default(true)
+  refillDate    DateTime?
+  notes         String?
+
+  logs          MedicationLog[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, isActive])
+  @@map("medications")
+}
+
+enum MedFrequency {
+  daily
+  twice_daily
+  three_times_daily
+  weekly
+  as_needed
+}
+
+model MedicationLog {
+  id           String     @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+
+  status       MedLogStatus
+  scheduledAt  DateTime
+  actionAt     DateTime?
+  notes        String?
+
+  createdAt    DateTime   @default(now())
+
+  @@index([medicationId, scheduledAt])
+  @@map("medication_logs")
+}
+
+enum MedLogStatus {
+  taken
+  skipped
+  snoozed
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI INSIGHTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Insight {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type            InsightType
+  title           String
+  body            String
+  confidence      Float?      // 0.0–1.0
+  supportingData  Json?
+  suggestedAction String?
+  isRead          Boolean     @default(false)
+
+  generatedAt     DateTime    @default(now())
+  expiresAt       DateTime?
+
+  @@index([userId, type, generatedAt])
+  @@index([userId, isRead])
+  @@map("insights")
+}
+
+enum InsightType {
+  daily
+  correlation
+  prediction
+  weekly
+  monthly
+}
+
+model WeeklyReport {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  weekStart    DateTime
+  weekEnd      DateTime
+  narrative    String
+  metrics      Json     // WeeklyMetrics object
+  highlights   String[]
+  improvements String[]
+  concerns     String[]
+  suggestions  String[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, weekStart])
+  @@index([userId, weekStart])
+  @@map("weekly_reports")
+}
+
+model MonthlyReport {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  month     Int      // 1–12
+  year      Int
+  narrative String
+  metrics   Json
+  trends    Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, month, year])
+  @@map("monthly_reports")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SAFETY & ALERTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Alert {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        AlertType
+  severity    AlertSeverity
+  title       String
+  body        String
+  isAcked     Boolean     @default(false)
+
+  triggeredAt DateTime    @default(now())
+  ackedAt     DateTime?
+
+  @@index([userId, isAcked])
+  @@index([userId, triggeredAt])
+  @@map("alerts")
+}
+
+enum AlertType {
+  safety
+  medication
+  prediction
+  streak
+  system
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+model TrustedContact {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  relation  String
+  phone     String?
+  email     String?
+  isPrimary Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("trusted_contacts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PREFERENCES & INTEGRATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model NotificationPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  checkInTime         String   @default("08:00")
+  checkInEnabled      Boolean  @default(true)
+  medicationEnabled   Boolean  @default(true)
+  weeklyReportEnabled Boolean  @default(true)
+  streakEnabled       Boolean  @default(true)
+  quietHoursStart     String?
+  quietHoursEnd       String?
+
+  updatedAt           DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+model WearableSync {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider     WearableProvider
+  isConnected  Boolean   @default(false)
+  lastSyncAt   DateTime?
+  accessToken  String?   // encrypted in production
+  refreshToken String?   // encrypted in production
+  syncData     Json?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, provider])
+  @@map("wearable_syncs")
+}
+
+enum WearableProvider {
+  apple_health
+  google_fit
+  fitbit
+  oura
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  action    String   // "checkin_created", "assessment_completed", etc.
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
