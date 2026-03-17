@@ -46,7 +46,4 @@ services:
     # ── Auto-deploy settings ────────────────────────────────────────────────
     autoDeploy: true        # Deploys on every push to your main branch
 
-    # ── Scaling (free tier = 1 instance) ────────────────────────────────────
-    scaling:
-      minInstances: 1
-      maxInstances: 1
+    # Free tier does not support autoscaling settings.
