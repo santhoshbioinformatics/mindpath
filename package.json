@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
   "prebuild": "rm -rf dist",
-  "build": "nest build",
+  "build": "npx nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "node dist/main",
     "start:dev": "nest start --watch",
@@ -24,6 +24,7 @@
     "db:reset": "prisma migrate reset --force"
   },
   "dependencies": {
+    "@nestjs/cli": "^11.0.0",
     "@anthropic-ai/sdk": "^0.21.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
@@ -51,7 +52,6 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
     "@types/bcrypt": "^5.0.2",
