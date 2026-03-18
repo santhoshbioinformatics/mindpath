@@ -5,9 +5,10 @@ import { WeeklyReportJob } from './weekly-report.job';
 import { StreakManagementJob } from './streak-management.job';
 import { MedicationReminderJob } from './medication-reminder.job';
 import { AIModule } from '../ai/ai.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AIModule],
+  imports: [AIModule, NotificationsModule],
   providers: [
     CorrelationDetectionJob,
     WeeklyReportJob,
